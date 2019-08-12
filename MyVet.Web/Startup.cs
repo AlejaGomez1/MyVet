@@ -6,11 +6,14 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpsPolicy;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MyVet.Web.Data;
+using MyVet.Web.Data.Entities;
+using MyVet.Web.Helpers;
 
 namespace MyVet.Web
 {
@@ -33,12 +36,25 @@ namespace MyVet.Web
                 options.MinimumSameSitePolicy = SameSiteMode.None;
             });
 
+            services.AddIdentity<User, IdentityRole>(cfg =>
+            {
+                cfg.User.RequireUniqueEmail = true;
+                cfg.Password.RequireDigit = false;
+                cfg.Password.RequiredUniqueChars = 0;
+                cfg.Password.RequireLowercase = false;
+                cfg.Password.RequireNonAlphanumeric = false;
+                cfg.Password.RequireUppercase = false;
+            })
+            
+            .AddEntityFrameworkStores<DataContext>();
+
             services.AddDbContext<DataContext>(cfg => /*(agregue una conexiòn a BD, conexion que usa sql server.Cualquier clase que le llamen en DataContext sabe que debe inyectar la conexiòn)*/
             {
                 cfg.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")); /*(vas a utilizar la conexiòn DefaultConnection,del string de conexiòn )*/
             });
 
             services.AddTransient<SeedDb>();
+            services.AddScoped<IUserHelper, UserHelper>(); /*(Esta es la inyecciòn:cualquier clase que utilice el IUserHelper en el ctor,yo le voy a mandar una instancia del UserHelper)*/
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
         }
 
@@ -58,6 +74,7 @@ namespace MyVet.Web
             app.UseHttpsRedirection();
             app.UseStaticFiles();
             app.UseCookiePolicy();
+            app.UseAuthentication();
 
             app.UseMvc(routes =>
             {

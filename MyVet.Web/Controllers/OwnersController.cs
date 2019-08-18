@@ -1,13 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using MyVet.Web.Data;
 using MyVet.Web.Data.Entities;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace MyVet.Web.Controllers
 {
@@ -29,7 +26,6 @@ namespace MyVet.Web.Controllers
                 .Include(o => o.Pets));
         }
 
-        // GET: Owners/Details/5
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null)
@@ -37,7 +33,12 @@ namespace MyVet.Web.Controllers
                 return NotFound();
             }
 
-            var owner = await _context.Owners
+            var owner = await _context.Owners /*(Select * from owners where id=id enviado como parametro)*/
+                .Include(o => o.User) /*(para los detalles tambièn debo enviar la relacion sino el campo user y pets van a llegar nulos)*/
+                .Include(o => o.Pets)
+                .ThenInclude(p => p.PetType)
+                .Include(o => o.Pets)
+                .ThenInclude(p => p.Histories)
                 .FirstOrDefaultAsync(m => m.Id == id);
             if (owner == null)
             {

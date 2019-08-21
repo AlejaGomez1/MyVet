@@ -3,6 +3,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyVet.Web.Data;
 using MyVet.Web.Data.Entities;
+using MyVet.Web.Helpers;
+using MyVet.Web.Models;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -12,10 +16,12 @@ namespace MyVet.Web.Controllers
     public class OwnersController : Controller
     {
         private readonly DataContext _context;
+        private readonly IUserHelper _userHelper;
 
-        public OwnersController(DataContext context) /*(el controlador owner inyecta el DataContext, 'context es la representacion de toda la bd')*/
+        public OwnersController(DataContext context, IUserHelper userHelper) /*(el controlador owner inyecta el DataContext, 'context es la representacion de toda la bd')*/
         {
             _context = context; /*(La conexion llega inyectada al controlador, con solo inyectarlo puedo acceder a los datos)*/
+            _userHelper = userHelper;
         }
 
         public IActionResult Index()
@@ -48,26 +54,60 @@ namespace MyVet.Web.Controllers
             return View(owner);
         }
 
-        // GET: Owners/Create
         public IActionResult Create()
         {
             return View();
         }
 
-        // POST: Owners/Create
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
-        // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id")] Owner owner)
+        public async Task<IActionResult> Create(AddUserViewModel model)
         {
             if (ModelState.IsValid)
             {
-                _context.Add(owner);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                var user = new User
+                {
+                    Address = model.Address, /*(el addres y todos los campos de lo que devuelve el modelo)*/
+                    Document = model.Document,
+                    Email = model.Username,
+                    FirstName = model.FirstName,
+                    LastName = model.LastName,
+                    PhoneNumber = model.PhoneNumber,
+                    UserName = model.Username
+
+                };
+
+                var response = await _userHelper.AddUserAsync(user, model.Password);
+                if(response.Succeeded)
+                {
+                    var userInDB = await _userHelper.GetUserByEmailAsync(model.Username);/*(En esta parte obtenemos el usuario y le agregamos rol)*/
+                    await _userHelper.AddUserToRoleAsync(userInDB, "Customer");
+
+                    var owner = new Owner
+                    {
+                        Agendas = new List<Agenda>(), /*(un usuario nuevo no tiene agenda, pero se manda una lista vacia, lo mismo para la mascota )*/
+                        Pets = new List<Pet>(),
+                        User = userInDB /*(Hasta este momento el usuario esta en memoria)*/
+                    };
+
+                    _context.Owners.Add(owner); /*(Aqui estoy haciendo el insert)*/
+                    try
+                    {
+                        await _context.SaveChangesAsync();/*(Aqui hago commit de la transaccion)*/
+                        return RedirectToAction(nameof(Index));
+                    }
+                    catch (Exception ex)
+                    {
+
+                        ModelState.AddModelError(string.Empty, ex.ToString());
+                        return View(model);
+                    }
+
+                }
+
+                ModelState.AddModelError(string.Empty, response.Errors.FirstOrDefault().Description);
             }
-            return View(owner);
+            return View(model);
         }
 
         // GET: Owners/Edit/5

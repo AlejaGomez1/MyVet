@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using MyVet.Web.Data;
 using MyVet.Web.Data.Entities;
@@ -7,6 +8,7 @@ using MyVet.Web.Helpers;
 using MyVet.Web.Models;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -17,11 +19,19 @@ namespace MyVet.Web.Controllers
     {
         private readonly DataContext _context;
         private readonly IUserHelper _userHelper;
+        private readonly ICombosHelper _combosHelper;
+        private readonly IConverterHelper _converterHelper;
 
-        public OwnersController(DataContext context, IUserHelper userHelper) /*(el controlador owner inyecta el DataContext, 'context es la representacion de toda la bd')*/
+        public OwnersController(
+            DataContext context, 
+            IUserHelper userHelper,
+            ICombosHelper combosHelper,
+            IConverterHelper converterHelper) /*(el controlador owner inyecta el DataContext, 'context es la representacion de toda la bd')*/
         {
             _context = context; /*(La conexion llega inyectada al controlador, con solo inyectarlo puedo acceder a los datos)*/
             _userHelper = userHelper;
+            _combosHelper = combosHelper;
+            _converterHelper = converterHelper;
         }
 
         public IActionResult Index()
@@ -78,7 +88,7 @@ namespace MyVet.Web.Controllers
                 };
 
                 var response = await _userHelper.AddUserAsync(user, model.Password);
-                if(response.Succeeded)
+                if (response.Succeeded)
                 {
                     var userInDB = await _userHelper.GetUserByEmailAsync(model.Username);/*(En esta parte obtenemos el usuario y le agregamos rol)*/
                     await _userHelper.AddUserToRoleAsync(userInDB, "Customer");
@@ -193,6 +203,61 @@ namespace MyVet.Web.Controllers
         private bool OwnerExists(int id)
         {
             return _context.Owners.Any(e => e.Id == id);
+        }
+
+        public async Task<IActionResult> AddPet(int? id)
+        {
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var owner = await _context.Owners.FindAsync(id.Value); /*(Select * from owners where id=id enviado como parametro)*/              
+            if (owner == null)
+            {
+                return NotFound();
+            }
+
+            var model = new PetViewModel /*(un objeto petviewmodel, model es el que se le va a mandar a la vista, con algunos datos precargados )*/
+            {
+                Born = DateTime.Today,
+                OwnerId = owner.Id,
+                PetTypes = _combosHelper.GetComboPetTypes() /*(PetTypes es el combo donde voy a pintar la lista de tipos de mascota)*/
+            };
+
+            return View(model);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> AddPet(PetViewModel model)
+        {
+            if(ModelState.IsValid)
+            {
+                var path = string.Empty;
+
+                if(model.ImageFile != null)
+                {
+                    var guid = Guid.NewGuid().ToString();
+                    var file = $"{guid}.jpg";
+                    path = Path.Combine(
+                        Directory.GetCurrentDirectory(),
+                        "wwwroot\\images\\Pets",
+                        file);
+
+                    using (var stream = new FileStream(path, FileMode.Create))
+                    {
+                        await model.ImageFile.CopyToAsync(stream);
+                    }
+
+                    path = $"~/images/Pets/{file}";
+                }
+
+                var pet = await  _converterHelper.ToPetAsync(model, path);
+                _context.Pets.Add(pet);
+                await _context.SaveChangesAsync();
+                return RedirectToAction($"Details/{model.OwnerId}");
+            }
+            return View(model);
         }
     }
 }

@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -45,7 +40,7 @@ namespace MyVet.Web
                 cfg.Password.RequireNonAlphanumeric = false;
                 cfg.Password.RequireUppercase = false;
             })
-            
+
             .AddEntityFrameworkStores<DataContext>();
 
             services.AddDbContext<DataContext>(cfg => /*(agregue una conexiòn a BD, conexion que usa sql server.Cualquier clase que le llamen en DataContext sabe que debe inyectar la conexiòn)*/
@@ -55,6 +50,9 @@ namespace MyVet.Web
 
             services.AddTransient<SeedDb>();
             services.AddScoped<IUserHelper, UserHelper>(); /*(Esta es la inyecciòn:cualquier clase que utilice el IUserHelper en el ctor,yo le voy a mandar una instancia del UserHelper)*/
+            services.AddScoped<ICombosHelper, CombosHelper>();
+            services.AddScoped<IConverterHelper, ConverterHelper>();
+
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
         }
 

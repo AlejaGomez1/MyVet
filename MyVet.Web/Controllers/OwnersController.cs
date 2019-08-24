@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using MyVet.Web.Data;
 using MyVet.Web.Data.Entities;
@@ -8,7 +7,6 @@ using MyVet.Web.Helpers;
 using MyVet.Web.Models;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -21,17 +19,20 @@ namespace MyVet.Web.Controllers
         private readonly IUserHelper _userHelper;
         private readonly ICombosHelper _combosHelper;
         private readonly IConverterHelper _converterHelper;
+        private readonly IImageHelper _imageHelper;
 
         public OwnersController(
-            DataContext context, 
+            DataContext context,
             IUserHelper userHelper,
             ICombosHelper combosHelper,
-            IConverterHelper converterHelper) /*(el controlador owner inyecta el DataContext, 'context es la representacion de toda la bd')*/
+            IConverterHelper converterHelper,
+            IImageHelper imageHelper) /*(el controlador owner inyecta el DataContext, 'context es la representacion de toda la bd')*/
         {
             _context = context; /*(La conexion llega inyectada al controlador, con solo inyectarlo puedo acceder a los datos)*/
             _userHelper = userHelper;
             _combosHelper = combosHelper;
             _converterHelper = converterHelper;
+            _imageHelper = imageHelper;
         }
 
         public IActionResult Index()
@@ -212,7 +213,7 @@ namespace MyVet.Web.Controllers
                 return NotFound();
             }
 
-            var owner = await _context.Owners.FindAsync(id.Value); /*(Select * from owners where id=id enviado como parametro)*/              
+            var owner = await _context.Owners.FindAsync(id.Value); /*(Select * from owners where id=id enviado como parametro)*/
             if (owner == null)
             {
                 return NotFound();
@@ -231,29 +232,55 @@ namespace MyVet.Web.Controllers
         [HttpPost]
         public async Task<IActionResult> AddPet(PetViewModel model)
         {
-            if(ModelState.IsValid)
+            if (ModelState.IsValid)
             {
                 var path = string.Empty;
 
-                if(model.ImageFile != null)
+                if (model.ImageFile != null)
                 {
-                    var guid = Guid.NewGuid().ToString();
-                    var file = $"{guid}.jpg";
-                    path = Path.Combine(
-                        Directory.GetCurrentDirectory(),
-                        "wwwroot\\images\\Pets",
-                        file);
-
-                    using (var stream = new FileStream(path, FileMode.Create))
-                    {
-                        await model.ImageFile.CopyToAsync(stream);
-                    }
-
-                    path = $"~/images/Pets/{file}";
+                    path = await _imageHelper.UploadImageAsync(model.ImageFile);
                 }
 
-                var pet = await  _converterHelper.ToPetAsync(model, path);
+                var pet = await _converterHelper.ToPetAsync(model, path, true);
                 _context.Pets.Add(pet);
+                await _context.SaveChangesAsync();
+                return RedirectToAction($"Details/{model.OwnerId}");
+            }
+            return View(model);
+        }
+        public async Task<IActionResult> EditPet(int? id) /*(en este contexto id no es el owner, es la mascota)*/
+        {
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var pet = await _context.Pets
+                .Include(p => p.Owner)
+                .Include(p => p.PetType)
+                .FirstOrDefaultAsync(p => p.Id == id ); /*(Select * from owners where id=id enviado como parametro)*/
+            if (pet == null)
+            {
+                return NotFound();
+            }
+
+            return View(_converterHelper.ToPetViewModel(pet));
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> EditPet(PetViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var path = model.ImageUrl;
+
+                if (model.ImageFile != null)
+                {
+                    path = await _imageHelper.UploadImageAsync(model.ImageFile);
+                }
+
+                var pet = await _converterHelper.ToPetAsync(model, path, false);
+                _context.Pets.Update(pet);
                 await _context.SaveChangesAsync();
                 return RedirectToAction($"Details/{model.OwnerId}");
             }

@@ -52,6 +52,8 @@ namespace MyVet.Web
             services.AddScoped<IUserHelper, UserHelper>(); /*(Esta es la inyecciòn:cualquier clase que utilice el IUserHelper en el ctor,yo le voy a mandar una instancia del UserHelper)*/
             services.AddScoped<ICombosHelper, CombosHelper>();
             services.AddScoped<IConverterHelper, ConverterHelper>();
+            services.AddScoped<IImageHelper, ImageHelper>();
+
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
         }

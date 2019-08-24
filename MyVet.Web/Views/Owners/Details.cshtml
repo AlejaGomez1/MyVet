@@ -57,7 +57,7 @@
 </div>
 <div>
     <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">Edit</a>
-    <a asp-action="AddPet" asp-route-id="@Model.Id" class="btn btn-primary">Add Pet</a>
+    <a asp-action="AddPet" asp-route-id="@Model.Id" class="btn btn-primary">Add Pet</a> <!-- Cuando le doy clic al boton Addpet le mando el modelId que es el codigo del owner pero cuando itero la lista de mascotas y le digo EditPet le mando el itemId, que es el codigo del pet-->
     <a asp-action="Index" class="btn btn-success">Back to List</a>
 </div>
 @if (Model.Pets.Count == 0)

@@ -57,5 +57,33 @@ namespace MyVet.Web.Helpers
                 PetTypes = _combosHelper.GetComboPetTypes()
             };
         }
+
+        public async Task<History> ToHistoryAsync(HistoryViewModel model, bool isNew) /*(Metodo que convierte de HistoryViewModel a History)*/
+        {
+            return new History
+            {
+                Date = model.Date.ToUniversalTime(),
+                Description = model.Description,
+                Id = isNew ? 0 : model.Id, /*(Si el registro es nuevo le mandamos Id cero, si estamos editando le mandamos el id que vamos a editar)*/
+                Pet = await _dataContext.Pets.FindAsync(model.PetId),
+                Remarks = model.Remarks,
+                ServiceType = await _dataContext.ServiceTypes.FindAsync(model.ServiceTypeId)
+            };
+        }
+
+        public HistoryViewModel ToHistoryViewModel(History history) /*(Metodo que le mandamos un History y lo convierte a HistoryViewModel)*/
+        {
+            return new HistoryViewModel
+            {
+                Date = history.Date,
+                Description = history.Description,
+                Id = history.Id,
+                PetId = history.Pet.Id,
+                Remarks = history.Remarks,
+                ServiceTypeId = history.ServiceType.Id,
+                ServiceTypes = _combosHelper.GetComboServiceTypes()
+            };
+        }
+
     }
 }
